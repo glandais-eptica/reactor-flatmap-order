@@ -102,8 +102,8 @@ public class OffsetsRealImpl implements Offsets {
 	 * @see com.github.glandais.reactor.Offsets#getBiggestIntervalsOffsets()
 	 */
 	@Override
-	public List<Long> getBiggestIntervalsOffsets() {
+	public Map<Long, Long> getBiggestIntervalsOffsets() {
 		return countMissing.entrySet().stream().sorted((e1, e2) -> -e1.getValue().compareTo(e2.getValue())).limit(3)
-				.map(Entry::getKey).collect(Collectors.toList());
+				.collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 	}
 }

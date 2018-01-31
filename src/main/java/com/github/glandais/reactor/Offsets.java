@@ -1,6 +1,7 @@
 package com.github.glandais.reactor;
 
 import java.util.List;
+import java.util.Map;
 
 public interface Offsets {
 
@@ -10,6 +11,6 @@ public interface Offsets {
 
 	void checkAck(Message message);
 
-	List<Long> getBiggestIntervalsOffsets();
+	Map<Long, Long> getBiggestIntervalsOffsets();
 
 }

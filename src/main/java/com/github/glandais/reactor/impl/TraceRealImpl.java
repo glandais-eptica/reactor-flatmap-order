@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,7 @@ public class TraceRealImpl implements Trace {
 
 	private Map<Long, List<Instant>> events = new HashMap<>();
 
-	private Map<Integer, StatsAccumulator> stats = new HashMap<>();
+	private Map<Integer, StatsAccumulator> stats = new TreeMap<>();
 
 	/* (non-Javadoc)
 	 * @see com.github.glandais.reactor.Trace#hit(java.lang.String, com.github.glandais.reactor.Message)
@@ -62,8 +63,8 @@ public class TraceRealImpl implements Trace {
 	}
 
 	protected void printStats(Integer k, StatsAccumulator v) {
-		String label = labels.get(k);
-		LOGGER.info("Stats of level {}", label);
+		String label = labels.get(k - 1) + " -> " + labels.get(k);
+		LOGGER.info("Stats of {}", label);
 		LOGGER.info("  {} count : {}", label, v.count());
 		LOGGER.info("  {} min : {}", label, v.min());
 		LOGGER.info("  {} max : {}", label, v.max());

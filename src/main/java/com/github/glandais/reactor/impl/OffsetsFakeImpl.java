@@ -2,6 +2,7 @@ package com.github.glandais.reactor.impl;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import com.github.glandais.reactor.Message;
 import com.github.glandais.reactor.Offsets;
@@ -26,8 +27,8 @@ public class OffsetsFakeImpl implements Offsets {
 	}
 
 	@Override
-	public List<Long> getBiggestIntervalsOffsets() {
-		return Collections.emptyList();
+	public Map<Long, Long> getBiggestIntervalsOffsets() {
+		return Collections.emptyMap();
 	}
 
 }
