@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,11 @@ public class TraceRealImpl implements Trace {
 
 	private Map<Long, List<Instant>> events = new HashMap<>();
 
+	private Map<Long, List<Long>> positions = new HashMap<>();
+
 	private Map<Integer, StatsAccumulator> stats = new TreeMap<>();
+
+	private Map<Integer, AtomicLong> seen = new TreeMap<>();
 
 	/* (non-Javadoc)
 	 * @see com.github.glandais.reactor.Trace#hit(java.lang.String, com.github.glandais.reactor.Message)
@@ -37,18 +42,19 @@ public class TraceRealImpl implements Trace {
 		Long offset = message.offset();
 		// store event for offset
 		List<Instant> list = events.computeIfAbsent(offset, i -> new ArrayList<>());
-		if (list.isEmpty()) {
-			events.put(offset, list);
-		}
 		list.add(now);
 
-		if (labels.size() < list.size()) {
+		int listSize = list.size();
+		if (labels.size() < listSize) {
 			labels.add(where);
 		}
 
+		long position = seen.computeIfAbsent(listSize - 1, i -> new AtomicLong(0L)).getAndIncrement();
+		positions.computeIfAbsent(offset, i -> new ArrayList<>()).add(position);
+
 		// store duration for offset
-		if (list.size() > 1) {
-			int event = list.size() - 1;
+		if (listSize > 1) {
+			int event = listSize - 1;
 			StatsAccumulator statsAccu = stats.computeIfAbsent(event, a -> new StatsAccumulator());
 			statsAccu.add(Duration.between(list.get(event - 1), list.get(event)).toMillis());
 		}
@@ -60,6 +66,7 @@ public class TraceRealImpl implements Trace {
 	@Override
 	public void printStats() {
 		stats.forEach(this::printStats);
+		positions.forEach((offset, pos) -> LOGGER.debug("{} : {}", offset, pos));
 	}
 
 	protected void printStats(Integer k, StatsAccumulator v) {
@@ -80,10 +87,12 @@ public class TraceRealImpl implements Trace {
 	public void print(Long key) {
 		List<Instant> value = events.get(key);
 		LOGGER.info("History for _{}_", key);
-		LOGGER.info("Start : {}", value.get(0));
+		List<Long> pos = positions.get(key);
+		LOGGER.info("Positions : {}", pos);
+		LOGGER.info("Start (pos:{}) : {}", pos.get(0), value.get(0));
 		for (int i = 1; i < value.size(); i++) {
-			LOGGER.info("Next  : {} ({} -> {}) ", Duration.between(value.get(i - 1), value.get(i)), labels.get(i - 1),
-					labels.get(i));
+			LOGGER.info("Next  (pos:{}) : {} ({} -> {}) ", pos.get(i), Duration.between(value.get(i - 1), value.get(i)),
+					labels.get(i - 1), labels.get(i));
 		}
 		LOGGER.info("Total  : {}", Duration.between(value.get(0), value.get(value.size() - 1)));
 	}
