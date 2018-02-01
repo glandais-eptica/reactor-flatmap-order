@@ -1,6 +1,5 @@
 package com.github.glandais.reactor.impl;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -24,7 +23,6 @@ public class OffsetsRealImpl implements Offsets {
 
 	public OffsetsRealImpl(long offset) {
 		super();
-		this.positions.put(offset, null);
 		this.nextStart = offset;
 		LOGGER.debug("Will start at _{}_", offset);
 	}
@@ -34,49 +32,33 @@ public class OffsetsRealImpl implements Offsets {
 	 */
 	@Override
 	public synchronized Message check(Message receiverOffset) {
+		// mark position
 		this.positions.put(receiverOffset.offset(), receiverOffset);
-		Long start = null;
+		// continuous interval from start to end to ack
 		Long end = null;
 		Message checked = null;
 		for (Entry<Long, Message> entry : this.positions.entrySet()) {
-			if (entry.getValue() == null) {
-				logMissing(receiverOffset.offset(), entry.getKey());
-				return null;
-			}
-			if (end != null && entry.getKey() - end > 1) {
+			Long pos = entry.getKey();
+			// next pos is not adjacent               first pos is not start
+			if ((checked != null && pos - end > 1) || (checked == null && !pos.equals(this.nextStart))) {
 				break;
-			} else {
-				Long pos = entry.getKey();
-				if (start == null) {
-					if (!pos.equals(this.nextStart)) {
-						break;
-					}
-					start = pos;
-				}
-				end = pos;
-				checked = entry.getValue();
 			}
+			checked = entry.getValue();
+			end = pos;
 		}
-		if (start != null) {
-			for (long i = start; i <= end; i++) {
+		// found interval to ack
+		if (checked != null) {
+			// remove all marked positions
+			for (long i = this.nextStart; i <= end; i++) {
 				this.positions.remove(i);
 			}
+			// move forward
 			this.nextStart = end + 1;
-		}
-		if (checked != null) {
 			LOGGER.debug("Marking _{}_ ack, acknowledging _{}_", receiverOffset.offset(), checked.offset());
 		} else {
 			logMissing(receiverOffset.offset(), this.nextStart);
 		}
 		return checked;
-	}
-
-	/* (non-Javadoc)
-	 * @see com.github.glandais.reactor.Offsets#getNextStart()
-	 */
-	@Override
-	public Long getNextStart() {
-		return nextStart;
 	}
 
 	protected void logMissing(long offset, long start) {
@@ -85,6 +67,14 @@ public class OffsetsRealImpl implements Offsets {
 
 		long diff = offset - start;
 		LOGGER.debug("Marking _{}_ ack, missing _{}_ (-{} lag)", offset, start, diff);
+	}
+
+	/* (non-Javadoc)
+	 * @see com.github.glandais.reactor.Offsets#getNextStart()
+	 */
+	@Override
+	public Long getNextStart() {
+		return nextStart;
 	}
 
 	/* (non-Javadoc)
