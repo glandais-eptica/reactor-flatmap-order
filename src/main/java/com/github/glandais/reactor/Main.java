@@ -2,10 +2,12 @@ package com.github.glandais.reactor;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
+import org.jooq.lambda.Seq;
+import org.jooq.lambda.tuple.Tuple2;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,19 +20,26 @@ import com.google.common.base.Stopwatch;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.function.Function4;
 
 public class Main {
 
+	private static final Scheduler SCHEDULER_MAIN = Schedulers.newElastic("main");
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
 	// Number of items
-	public static final int COUNT = 1000;
+	public static final int COUNT = 3000;
+
+	protected static final long DURATION_IO = 20L;
+
+	protected static final long CPU_CYCLES = 5000;
 
 	// Transformers
-	protected static final Transform[] TRANSFORMS = new Transform[] { new TransformIO(20L), new TransformCPU(50L),
-			new TransformIO(20L) };
+	protected static final Transform[] TRANSFORMS = new Transform[] { new TransformIO(DURATION_IO),
+			new TransformCPU(CPU_CYCLES), new TransformCPU(CPU_CYCLES), new TransformIO(DURATION_IO) };
 
 	public static final Level LEVEL = Level.FINE;
 
@@ -38,11 +47,24 @@ public class Main {
 		// testing various flatMap alikes
 		Main main = new Main();
 
-		//		main.bench("map", main::map);
-		main.bench("flatMap", main::flatMap);
-		//		main.bench("concatMap", main::concatMap);
-		//		main.bench("flatMapSequential", main::flatMapSequential);
+		//		main.bench("map", main::map, new OffsetsFakeImpl(), new TraceRealImpl());
 
+		//		main.bench("flatMap0 F F", main::flatMap, new OffsetsFakeImpl(), new TraceFakeImpl());
+		//		main.bench("flatMap0 F R", main::flatMap, new OffsetsFakeImpl(), new TraceRealImpl());
+		//		main.bench("flatMap0 R F", main::flatMap, new OffsetsRealImpl(0L), new TraceFakeImpl());
+		main.bench("flatMap0 R R", main::flatMap, new OffsetsRealImpl(0L), new TraceRealImpl());
+		//		main.bench("flatMap1 F F", main::flatMap, new OffsetsFakeImpl(), new TraceFakeImpl());
+		//		main.bench("flatMap1 F R", main::flatMap, new OffsetsFakeImpl(), new TraceRealImpl());
+		//		main.bench("flatMap1 R F", main::flatMap, new OffsetsRealImpl(0L), new TraceFakeImpl());
+		//		main.bench("flatMap1 R R", main::flatMap, new OffsetsRealImpl(0L), new TraceRealImpl());
+
+		//		main.bench("concatMap", main::concatMap, new OffsetsFakeImpl(), new TraceRealImpl());
+		//		main.bench("flatMapSequential", main::flatMapSequential, new OffsetsFakeImpl(), new TraceRealImpl());
+
+		SCHEDULER_MAIN.dispose();
+		for (Transform transform : TRANSFORMS) {
+			transform.stopScheduler();
+		}
 		Schedulers.shutdownNow();
 	}
 
@@ -62,20 +84,17 @@ public class Main {
 		return flux.flatMapSequential(m -> transform(m, transform, trace, step));
 	}
 
-	private void bench(String name, Function4<Flux<Message>, Transform, Trace, Integer, Flux<Message>> mapper) {
-		LOGGER.info("****************** {} ******************", name);
+	private void bench(String name, Function4<Flux<Message>, Transform, Trace, Integer, Flux<Message>> mapper,
+			Offsets offsets, Trace trace) {
+		LOGGER.warn(Markers.ALWAYS, "****************** {} ******************", name);
 
 		// some context
 		Instant start = Instant.now();
-		Offsets offsets = new OffsetsRealImpl(0);
-		Trace trace = new TraceRealImpl();
 		AtomicLong acks = new AtomicLong(0L);
 		Stopwatch stopwatch = Stopwatch.createUnstarted();
-		//		Offsets offsets = new OffsetsFakeImpl();
-		//		Trace trace = new TraceFakeImpl();
 
 		// generate a list of message
-		Flux<Message> flux = Flux.range(0, COUNT).map(i -> new Message((long) i, offsets))
+		Flux<Message> flux = Flux.range(0, COUNT).subscribeOn(SCHEDULER_MAIN).map(i -> new Message((long) i, offsets))
 				.doOnNext(m -> trace.hit("sourced", m));
 
 		// mapping flux using provided mapper
@@ -98,30 +117,33 @@ public class Main {
 		Message last = flux.last().block();
 
 		// print infos
-		LOGGER.info("Latest message : {}", last);
-		LOGGER.info("Latest ack : {}", offsets.getNextStart());
-		LOGGER.info("Acks count : {}", acks);
-		LOGGER.info("Acks duration : {}", stopwatch);
-		LOGGER.info("Duration : {}", Duration.between(start, Instant.now()));
+		LOGGER.info(Markers.ALWAYS, "Latest message : {}", last);
+		LOGGER.debug(Markers.ACK, "Latest ack : {}", offsets.getNextStart());
+		LOGGER.debug(Markers.ACK, "Acks count : {}", acks);
+		LOGGER.debug(Markers.ACK, "Acks duration : {}", stopwatch);
+		LOGGER.info(Markers.ALWAYS, "Duration : {}", Duration.between(start, Instant.now()));
 
 		trace.printStats();
 
-		Map<Long, Long> biggestIntervalsOffsets = offsets.getBiggestIntervalsOffsets();
-		biggestIntervalsOffsets.forEach((offset, lag) -> {
-			LOGGER.info("{} ({} lags)", offset, lag);
-			trace.print(offset);
+		List<Tuple2<Long, Long>> biggestIntervalsOffsets = offsets.getBiggestIntervalsOffsets();
+		if (!biggestIntervalsOffsets.isEmpty()) {
+			LOGGER.warn(Markers.LAGS, "Biggest laggers : ");
+		}
+		Seq.zipWithIndex(biggestIntervalsOffsets).forEach(t -> {
+			LOGGER.warn(Markers.LAGS, "Lagger #{}", (t.v2 + 1));
+			trace.print(t.v1.v1, t.v1.v2);
 		});
 	}
 
 	public Publisher<Message> transform(Message input, Transform transform, Trace trace, Integer step) {
+		trace.hit("transform " + step, input);
 		return Mono.just(input).doOnNext(m -> trace.hit("mono " + step, m)).subscribeOn(transform.scheduler())
-				.doOnNext(m -> trace.hit("subscribedOn " + step, m)).map(i -> {
-					return transform.apply(i, step);
-				}).onErrorResume(t -> {
+				.doOnNext(m -> trace.hit("subscribedOn " + step, m)).map(i -> transform.apply(i, step))
+				.doOnNext(m -> trace.hit("transformed " + step, m)).onErrorResume(t -> {
 					LOGGER.error("Something went wrong!", t);
 					input.ack();
 					return Mono.empty();
-				}).doOnNext(m -> trace.hit("transformed " + step, m));
+				});
 	}
 
 }

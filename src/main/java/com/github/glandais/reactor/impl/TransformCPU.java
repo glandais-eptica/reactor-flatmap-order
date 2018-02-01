@@ -16,23 +16,20 @@ public class TransformCPU implements Transform {
 
 	private static final Scheduler SCHEDULER = Schedulers.newParallel("process", 32);
 
-	private long duration;
+	private long cycles;
 
-	public TransformCPU(long duration) {
+	public TransformCPU(long cycles) {
 		super();
-		this.duration = duration;
+		this.cycles = cycles;
 	}
 
 	@Override
 	public Message apply(Message input, Integer step) {
-		long now = System.currentTimeMillis();
-		long end = now + duration;
-		long out = now;
+		long out = System.nanoTime();
 		int n = 0;
 		do {
 			out = Hashing.sha512().hashLong(out).asLong();
-			n++;
-		} while (System.currentTimeMillis() <= end);
+		} while (n++ < this.cycles);
 		LOGGER.debug("{} transformed {} {}", input, step, n);
 		return input;
 	}
@@ -40,6 +37,11 @@ public class TransformCPU implements Transform {
 	@Override
 	public Scheduler scheduler() {
 		return SCHEDULER;
+	}
+
+	@Override
+	public void stopScheduler() {
+		SCHEDULER.dispose();
 	}
 
 }

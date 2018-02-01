@@ -30,4 +30,9 @@ public class TransformIO implements Transform {
 		return Schedulers.elastic();
 	}
 
+	@Override
+	public void stopScheduler() {
+		Schedulers.elastic().dispose();
+	}
+
 }

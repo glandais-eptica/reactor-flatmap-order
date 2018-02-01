@@ -6,6 +6,6 @@ public interface Trace {
 
 	void printStats();
 
-	void print(Long key);
+	void print(Long key, Long lagCount);
 
 }

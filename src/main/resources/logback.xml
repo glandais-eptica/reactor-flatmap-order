@@ -14,8 +14,62 @@
         </encoder>
     </appender>
 
+    <appender name="LAGS" class="ch.qos.logback.core.FileAppender">
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator>
+                <expression>return marker != null &amp;&amp;
+                    (marker.getName().equals("LAGS") ||
+                    marker.getName().equals("ALWAYS"));
+                </expression>
+            </evaluator>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <file>target/application_lags.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="STATS" class="ch.qos.logback.core.FileAppender">
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator>
+                <expression>return marker != null &amp;&amp;
+                    (marker.getName().equals("STATS") ||
+                    marker.getName().equals("ALWAYS"));
+                </expression>
+            </evaluator>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <file>target/application_stats.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ACK" class="ch.qos.logback.core.FileAppender">
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator>
+                <expression>return marker != null &amp;&amp;
+                    (marker.getName().equals("ACK") ||
+                    marker.getName().equals("ALWAYS"));
+                </expression>
+            </evaluator>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <file>target/application_ack.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>target/application.log</file>
+        <file>target/application_all.log</file>
         <append>false</append>
         <encoder>
             <pattern>${PATTERN}</pattern>
@@ -25,6 +79,9 @@
     <root level="${ROOT_LEVEL:-DEBUG}">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
+        <appender-ref ref="LAGS" />
+        <appender-ref ref="STATS" />
+        <appender-ref ref="ACK" />
     </root>
 </configuration>
 

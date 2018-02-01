@@ -1,13 +1,17 @@
 package com.github.glandais.reactor.impl;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import org.jooq.lambda.tuple.Tuple;
+import org.jooq.lambda.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.glandais.reactor.Markers;
 import com.github.glandais.reactor.Message;
 import com.github.glandais.reactor.Offsets;
 
@@ -24,7 +28,7 @@ public class OffsetsRealImpl implements Offsets {
 	public OffsetsRealImpl(long offset) {
 		super();
 		this.nextStart = offset;
-		LOGGER.debug("Will start at _{}_", offset);
+		LOGGER.debug(Markers.ACK, "Will start at _{}_", offset);
 	}
 
 	/* (non-Javadoc)
@@ -54,7 +58,8 @@ public class OffsetsRealImpl implements Offsets {
 			}
 			// move forward
 			this.nextStart = end + 1;
-			LOGGER.debug("Marking _{}_ ack, acknowledging _{}_", receiverOffset.offset(), checked.offset());
+			LOGGER.debug(Markers.ACK, "Marking _{}_ ack, acknowledging _{}_", receiverOffset.offset(),
+					checked.offset());
 		} else {
 			logMissing(receiverOffset.offset(), this.nextStart);
 		}
@@ -66,7 +71,7 @@ public class OffsetsRealImpl implements Offsets {
 		countMissing.put(start, count + 1);
 
 		long diff = offset - start;
-		LOGGER.debug("Marking _{}_ ack, missing _{}_ (-{} lag)", offset, start, diff);
+		LOGGER.debug(Markers.LAGS, "Marking _{}_ ack, missing _{}_ (-{} lag)", offset, start, diff);
 	}
 
 	/* (non-Javadoc)
@@ -84,7 +89,7 @@ public class OffsetsRealImpl implements Offsets {
 	public void checkAck(Message message) {
 		Message toAck = check(message);
 		if (toAck != null) {
-			LOGGER.debug("Ack {}", toAck);
+			LOGGER.debug(Markers.ACK, "Ack {}", toAck);
 		}
 	}
 
@@ -92,8 +97,8 @@ public class OffsetsRealImpl implements Offsets {
 	 * @see com.github.glandais.reactor.Offsets#getBiggestIntervalsOffsets()
 	 */
 	@Override
-	public Map<Long, Long> getBiggestIntervalsOffsets() {
+	public List<Tuple2<Long, Long>> getBiggestIntervalsOffsets() {
 		return countMissing.entrySet().stream().sorted((e1, e2) -> -e1.getValue().compareTo(e2.getValue())).limit(3)
-				.collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+				.map(e -> Tuple.tuple(e.getKey(), e.getValue())).collect(Collectors.toList());
 	}
 }

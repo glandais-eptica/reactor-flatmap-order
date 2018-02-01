@@ -16,7 +16,7 @@ public class TraceFakeImpl implements Trace {
 	}
 
 	@Override
-	public void print(Long key) {
+	public void print(Long key, Long lagCount) {
 		// NOOP
 	}
 

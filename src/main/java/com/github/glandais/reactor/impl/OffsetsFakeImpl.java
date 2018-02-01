@@ -1,7 +1,9 @@
 package com.github.glandais.reactor.impl;
 
 import java.util.Collections;
-import java.util.Map;
+import java.util.List;
+
+import org.jooq.lambda.tuple.Tuple2;
 
 import com.github.glandais.reactor.Message;
 import com.github.glandais.reactor.Offsets;
@@ -26,8 +28,8 @@ public class OffsetsFakeImpl implements Offsets {
 	}
 
 	@Override
-	public Map<Long, Long> getBiggestIntervalsOffsets() {
-		return Collections.emptyMap();
+	public List<Tuple2<Long, Long>> getBiggestIntervalsOffsets() {
+		return Collections.emptyList();
 	}
 
 }

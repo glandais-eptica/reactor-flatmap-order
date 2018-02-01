@@ -8,4 +8,6 @@ public interface Transform extends BiFunction<Message, Integer, Message> {
 
 	Scheduler scheduler();
 
+	void stopScheduler();
+
 }

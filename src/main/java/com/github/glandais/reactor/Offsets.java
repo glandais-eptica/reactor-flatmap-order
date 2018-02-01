@@ -1,6 +1,8 @@
 package com.github.glandais.reactor;
 
-import java.util.Map;
+import java.util.List;
+
+import org.jooq.lambda.tuple.Tuple2;
 
 public interface Offsets {
 
@@ -10,6 +12,6 @@ public interface Offsets {
 
 	void checkAck(Message message);
 
-	Map<Long, Long> getBiggestIntervalsOffsets();
+	List<Tuple2<Long, Long>> getBiggestIntervalsOffsets();
 
 }
