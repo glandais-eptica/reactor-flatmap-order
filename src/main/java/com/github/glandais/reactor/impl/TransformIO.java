@@ -3,6 +3,9 @@ package com.github.glandais.reactor.impl;
 import com.github.glandais.reactor.Message;
 import com.github.glandais.reactor.Transform;
 
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+
 public class TransformIO implements Transform {
 
 	private long duration;
@@ -20,6 +23,11 @@ public class TransformIO implements Transform {
 			// NOOP
 		}
 		return input;
+	}
+
+	@Override
+	public Scheduler scheduler() {
+		return Schedulers.elastic();
 	}
 
 }
